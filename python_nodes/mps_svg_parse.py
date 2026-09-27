@@ -29,7 +29,7 @@ geo.addAttrib(hou.attribType.Prim, "iso_code", "")
 
 geo.addAttrib(hou.attribType.Prim, "Cd", hou.Vector3(1, 1, 1))
 
-def _assign_tags(poly, id_string, name_layer, fill_color):
+def _assign_tags(poly, id_string, name_layer, polycolor):
     tags = id_string.split('|')
     
     if len(tags) > 0:
@@ -57,8 +57,8 @@ def _assign_tags(poly, id_string, name_layer, fill_color):
             poly.setAttribValue("uid", -999)
 
     # Color convert HEX>RGB
-    if fill_color and fill_color.startswith('#'):
-        hex_str = fill_color.lstrip('#')
+    if polycolor and polycolor.startswith('#'):
+        hex_str = polycolor.lstrip('#')
         if len(hex_str) == 6:
             r = int(hex_str[0:2], 16) / 255.0
             g = int(hex_str[2:4], 16) / 255.0
@@ -109,7 +109,9 @@ try:
 
         for path in paths:
             d_string = path.get('d', '')
-            fill_color = path.get('fill', '#ffffff')
+            fill_color = path.get('fill', None)
+            stroke_color = path.get('stroke', None)
+            out_color = fill_color or stroke_color or '#ffffff'
             uattr_data = path.get('data-uattr', layer_id)
             
             if not d_string:
@@ -125,7 +127,7 @@ try:
                 
                 if cmd in ['M', 'm']:
                     if current_pts:
-                        flush_current_path(current_pts, is_closed, geo, uattr_data, layer_id, fill_color)
+                        flush_current_path(current_pts, is_closed, geo, uattr_data, layer_id, out_color)
                         current_pts = []
                         is_closed = False 
                         
@@ -164,12 +166,12 @@ try:
                 elif cmd in ['Z', 'z']:
                     is_closed = True
                     if current_pts:
-                        flush_current_path(current_pts, is_closed, geo, uattr_data, layer_id, fill_color)
+                        flush_current_path(current_pts, is_closed, geo, uattr_data, layer_id, out_color)
                         current_pts = []
                     is_closed = False 
 
             if current_pts:
-                flush_current_path(current_pts, is_closed, geo, uattr_data, layer_id, fill_color)
+                flush_current_path(current_pts, is_closed, geo, uattr_data, layer_id, out_color)
 
 except Exception as e:
     raise hou.Error("Error parsing SVG geometry: " + str(e))
