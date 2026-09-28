@@ -5,6 +5,8 @@ node = hou.pwd()
 geo = node.geometry()
 
 clean_attr = False
+
+# expample    = "C:/Users/PC05/Desktop/earth_project/files/admin0.svg"
 svg_file_path = "C:/Users/you/Desktop/earth_project/files/you.svg"
 
 unclosing_tokens_list = ["graticules", "bounding", "time", "seas", "eez"]
@@ -29,13 +31,19 @@ geo.addAttrib(hou.attribType.Prim, "iso_code", "")
 
 geo.addAttrib(hou.attribType.Prim, "Cd", hou.Vector3(1, 1, 1))
 
-def _assign_tags(poly, id_string, name_layer, polycolor):
-    tags = id_string.split('|')
-    
+def _assign_tags(poly, alldata):
+    # alldata = [0]=g_name, [1]=p_name, [2]=p_color, [3]=p_data
+
+    g_name = alldata['g_name']
+    p_color = alldata['p_color']
+    p_data = alldata['p_data']
+
+    tags = p_data.split('|')
+
     if len(tags) > 0:
         type_str = str(tags[0])
         
-        poly.setAttribValue("shapefile", name_layer)
+        poly.setAttribValue("shapefile", g_name)
 
         # ne_10m_admin_1_states_provinces
         if type_str == "admin":
@@ -53,12 +61,12 @@ def _assign_tags(poly, id_string, name_layer, polycolor):
             poly.setAttribValue("uid", int(tags[1]))
 
         else:
-            poly.setAttribValue("type", id_string)
+            poly.setAttribValue("type", p_data)
             poly.setAttribValue("uid", -999)
 
     # Color convert HEX>RGB
-    if polycolor and polycolor.startswith('#'):
-        hex_str = polycolor.lstrip('#')
+    if p_color and p_color.startswith('#'):
+        hex_str = p_color.lstrip('#')
         if len(hex_str) == 6:
             r = int(hex_str[0:2], 16) / 255.0
             g = int(hex_str[2:4], 16) / 255.0
@@ -66,7 +74,7 @@ def _assign_tags(poly, id_string, name_layer, polycolor):
             poly.setAttribValue("Cd", hou.Vector3(r, g, b))
 
 
-def flush_current_path(pts, closed, geometry, id_str, name_layer, color):
+def flush_current_path(pts, closed, geometry, alldata): #
     """create poly and append attr"""
     if len(pts) < 2:
         return
@@ -75,14 +83,14 @@ def flush_current_path(pts, closed, geometry, id_str, name_layer, color):
     for pt in pts:
         poly.addVertex(pt)
         
-    is_special_layer = any(token in name_layer.lower() for token in unclosing_tokens_list)
+    is_special_layer = any(token in alldata['g_name'].lower() for token in unclosing_tokens_list)
     
     if is_special_layer:
         poly.setIsClosed(False)
     else:
         poly.setIsClosed(closed if len(pts) >= 3 else False)
         
-    _assign_tags(poly, id_str, name_layer, color)
+    _assign_tags(poly, alldata)
 
 
 try:
@@ -99,11 +107,9 @@ try:
         
     for layer in layers: # проход по всем <g> ~ layers
 
-        layer_id = layer.get('id', '') # <g id=""> == layer name
-
         # все <path> внутри группы
         paths = layer.findall('.//svg:path', namespaces)
-
+        group_id = layer.get('id', '') # <g id=""> == layer name in mapshaper
         if not paths:
             paths = layer.findall('.//path')
 
@@ -111,8 +117,13 @@ try:
             d_string = path.get('d', '')
             fill_color = path.get('fill', None)
             stroke_color = path.get('stroke', None)
-            out_color = fill_color or stroke_color or '#ffffff'
-            uattr_data = path.get('data-uattr', layer_id)
+            
+            alldata = {
+                'g_name': group_id,
+                'p_name': path.get('id', group_id),
+                'p_color': fill_color or stroke_color or '#ffffff',
+                'p_data': path.get('data-uattr', group_id)
+            }
             
             if not d_string:
                 continue
@@ -127,7 +138,7 @@ try:
                 
                 if cmd in ['M', 'm']:
                     if current_pts:
-                        flush_current_path(current_pts, is_closed, geo, uattr_data, layer_id, out_color)
+                        flush_current_path(current_pts, is_closed, geo, alldata)
                         current_pts = []
                         is_closed = False 
                         
@@ -166,15 +177,16 @@ try:
                 elif cmd in ['Z', 'z']:
                     is_closed = True
                     if current_pts:
-                        flush_current_path(current_pts, is_closed, geo, uattr_data, layer_id, out_color)
+                        flush_current_path(current_pts, is_closed, geo, alldata)
                         current_pts = []
                     is_closed = False 
 
             if current_pts:
-                flush_current_path(current_pts, is_closed, geo, uattr_data, layer_id, out_color)
+                flush_current_path(current_pts, is_closed, geo, alldata)
 
 except Exception as e:
     raise hou.Error("Error parsing SVG geometry: " + str(e))
+
 
 
 if clean_attr: # remove pts and prims attr
