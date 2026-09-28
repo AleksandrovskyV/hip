@@ -4,12 +4,14 @@ import xml.etree.ElementTree as ET
 node = hou.pwd()
 geo = node.geometry()
 
-clean_attr = False
 
 # expample    = "C:/Users/PC05/Desktop/earth_project/files/admin0.svg"
 svg_file_path = "C:/Users/you/Desktop/earth_project/files/you.svg"
 
+clean_attr = False
+is_mapshaper = True
 unclosing_tokens_list = ["graticules", "bounding", "time", "seas", "eez"]
+
 
 # for custom parsing svg from "mapshaper.org", readme:
 # https://github.com/AleksandrovskyV/notes/mapshaper.md
@@ -20,16 +22,21 @@ unclosing_tokens_list = ["graticules", "bounding", "time", "seas", "eez"]
 # uid - custom country idx
 # adm1_code and iso_3166_2 - optional on admin1
 
-geo.addAttrib(hou.attribType.Prim, "shapefile", "")
-
-geo.addAttrib(hou.attribType.Prim, "type", "")
-geo.addAttrib(hou.attribType.Prim, "wikidata", "")
-geo.addAttrib(hou.attribType.Prim, "uname", "")
-geo.addAttrib(hou.attribType.Prim, "uid", -1)
-geo.addAttrib(hou.attribType.Prim, "adm1_code", "")
-geo.addAttrib(hou.attribType.Prim, "iso_code", "")
 
 geo.addAttrib(hou.attribType.Prim, "Cd", hou.Vector3(1, 1, 1))
+if is_mapshaper:
+    geo.addAttrib(hou.attribType.Prim, "shapefile", "")
+
+    geo.addAttrib(hou.attribType.Prim, "type", "")
+    geo.addAttrib(hou.attribType.Prim, "wikidata", "")
+    geo.addAttrib(hou.attribType.Prim, "uname", "")
+    geo.addAttrib(hou.attribType.Prim, "uid", -1)
+    geo.addAttrib(hou.attribType.Prim, "adm1_code", "")
+    geo.addAttrib(hou.attribType.Prim, "iso_code", "")
+else:
+    geo.addAttrib(hou.attribType.Prim, "pathid", "")
+
+
 
 def _assign_tags(poly, alldata):
     # alldata = [0]=g_name, [1]=p_name, [2]=p_color, [3]=p_data
@@ -40,7 +47,7 @@ def _assign_tags(poly, alldata):
 
     tags = p_data.split('|')
 
-    if len(tags) > 0:
+    if len(tags) > 0 and is_mapshaper:
         type_str = str(tags[0])
         
         poly.setAttribValue("shapefile", g_name)
@@ -59,10 +66,11 @@ def _assign_tags(poly, alldata):
         elif type_str in ["lines", "water", "guide"]:
             poly.setAttribValue("type", type_str)
             poly.setAttribValue("uid", int(tags[1]))
-
         else:
             poly.setAttribValue("type", p_data)
             poly.setAttribValue("uid", -999)
+    else:
+        poly.setAttribValue("pathid", alldata['p_name'])
 
     # Color convert HEX>RGB
     if p_color and p_color.startswith('#'):
