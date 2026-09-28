@@ -63,7 +63,7 @@ def _assign_tags(poly, alldata):
 
         # special layers
         # ne_110m_graticules_30
-        elif type_str in ["lines", "water", "guide"]:
+        elif type_str in ["lines", "water", "guide", "bbox"]:
             poly.setAttribValue("type", type_str)
             poly.setAttribValue("uid", int(tags[1]))
         else:
